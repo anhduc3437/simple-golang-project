@@ -10,6 +10,9 @@
 #### Start docker compose
 - Run `docker-compose up --build -d`
 
+#### See the website
+- http://localhost
+
 #### Database managerment 
 - http://localhost:8080/ 
 
