@@ -2,48 +2,52 @@ version: "3.8"
 
 services:
   go:
-    build: ./projects/
+    build:
+      context: ./projects
+      dockerfile: Dockerfile
     ports:
       - 80:8080
     volumes:
       - ./projects:/app
     networks:
-      - mynet
+      - database
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
-      - PGUSER=${PGUSER:?user not set}
-      - PGPASSWORD=${PGPASSWORD:?database password not set}
-      - PGHOST=${PGHOST:-postgresdb}
-      - PGPORT=${PGPORT:-5432}
-      - PGDATABASE=${PGDATABASE:-sgp}
-    deploy:
-      restart_policy:
-        condition: on-failure
-        max_attempts: 10
+      - PGUSER=${POSTGRES_USER:?user not set}
+      - PGPASSWORD=${POSTGRES_PASSWORD:?database password not set}
+      - PGHOST=${POSTGRES_HOST:-postgres}
+      - PGPORT=${POSTGRES_PORT:-5432}
+      - PGDATABASE=${POSTGRES_DB:-sgp}
 
   postgres:
-    build: ./database
-    hostname: postgresdb
+    image: postgres:13.2-alpine
     volumes:
-      - ./database/init-scripts/:/initdb.d/
-      - /var/lib/postgresql/data
+      - ./database/init-scripts/:/docker-entrypoint-initdb.d/
+      - sgp_postgres_data:/var/lib/postgresql/data/
     env_file: .env
-    environment:
-      POSTGRES_USER: "${PGUSER}"
-      POSTGRES_PASSWORD: "${PGPASSWORD}"
-      POSTGRES_DB: "${PGDATABASE}"
     networks:
-      - mynet
-    ports:
-      - 5432:5432
+      - db_monitoring
+      - database
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
   adminer:
-    image: adminer:latest
+    image: adminer:4.8.1
     ports:
       - 8080:8080
     networks:
-      - mynet
+      - db_monitoring
 
 networks:
-  mynet:
+  database:
+  db_monitoring:
+volumes:
+    sgp_postgres_data:
+        external: false
